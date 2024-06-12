@@ -8,10 +8,13 @@ public class Board : MonoBehaviour
 {
     public Tilemap tilemap { get; private set; }
     public Piece activePiece { get; private set; }
+    public NextPiece nextPiece { get; private set; }
     public TetronimoData[] tetronimoes;
     public Vector3Int spawnPosition;
+    public Vector3Int nextPiecePosition;
     public Vector2Int boardSize = new Vector2Int(10, 20);
     public Tile clearingTile;
+    public MusicController musicController;
 
     public float stepDelay = 1f;
     public int pieceCount = 0;
@@ -29,7 +32,8 @@ public class Board : MonoBehaviour
     private void Awake()
     {
         this.tilemap = GetComponentInChildren<Tilemap>();
-        this.activePiece = GetComponentInChildren<Piece>(); 
+        this.activePiece = GetComponentInChildren<Piece>();
+        this.nextPiece = GetComponentInChildren<NextPiece>();
 
         for(int i = 0; i < this.tetronimoes.Length; i++)
         {
@@ -39,15 +43,30 @@ public class Board : MonoBehaviour
 
     private void Start()
     {
-        SpawnPiece();
+        SpawnStartingPieces();
     }
 
-    public void SpawnPiece()
+    public void SpawnStartingPieces()
     {
+        // starting piece
         int random = Random.Range(0, tetronimoes.Length);
         TetronimoData data = this.tetronimoes[random];
 
         this.activePiece.Initialize(this, this.spawnPosition, data);
+        Set(this.activePiece);
+
+        // starting next piece
+
+        int randomNext = Random.Range(0, tetronimoes.Length);
+        TetronimoData dataNext = this.tetronimoes[randomNext];
+
+        this.nextPiece.Initialize(this, this.nextPiecePosition, dataNext);
+        SetAsNext(this.nextPiece);
+    }
+
+    public void SpawnPiece()
+    {
+        this.activePiece.Initialize(this, this.spawnPosition, nextPiece.data);
 
         if(IsValidPosition(this.activePiece, this.spawnPosition))
         {
@@ -57,6 +76,14 @@ public class Board : MonoBehaviour
         {
             GameOver();
         }
+
+        Clear(this.nextPiece);
+
+        int random = Random.Range(0, tetronimoes.Length);
+        TetronimoData data = this.tetronimoes[random];
+
+        this.nextPiece.Initialize(this, nextPiecePosition, data);
+        SetAsNext(this.nextPiece);
     }
 
     public void Set(Piece piece)
@@ -68,11 +95,29 @@ public class Board : MonoBehaviour
         }
     }
 
+    public void SetAsNext(NextPiece nextPiece)
+    {
+        for (int i = 0; i < nextPiece.cells.Length; i++)
+        {
+            Vector3Int tilePosition = nextPiece.cells[i] + nextPiece.position;
+            this.tilemap.SetTile(tilePosition, nextPiece.data.tile);
+        }
+    }
+
     public void Clear(Piece piece)
     {
         for (int i = 0; i < piece.cells.Length; i++)
         {
             Vector3Int tilePosition = piece.cells[i] + piece.position;
+            this.tilemap.SetTile(tilePosition, null);
+        }
+    }
+
+    public void Clear(NextPiece nextPiece)
+    {
+        for (int i = 0; i < nextPiece.cells.Length; i++)
+        {
+            Vector3Int tilePosition = nextPiece.cells[i] + nextPiece.position;
             this.tilemap.SetTile(tilePosition, null);
         }
     }
@@ -167,15 +212,25 @@ public class Board : MonoBehaviour
 
     public void CheckForNextLevel()
     {
-        if(pieceCount % 10 == 0)
+        if(pieceCount % 20 == 0)
         {
             level++;
             stepDelay = stepDelay * 0.9f;
+        }
+
+        if(pieceCount == 20)
+        {
+            musicController.StartPart2();
         }
     }
 
     private void GameOver()
     {
+        musicController.StopMusic();
+
         this.tilemap.ClearAllTiles();
+        pieceCount = 0;
+
+        musicController.StartMusic();
     }
 }
